@@ -7,18 +7,12 @@ class Pengaturan_model extends Model
 
     public function getAllSettings()
     {
-
-        return $this->db->query("SELECT * FROM tbl_pengaturan ORDER BY id_pengaturan ASC")->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll("SELECT * FROM tbl_pengaturan ORDER BY id_pengaturan ASC");
     }
 
     public function getSetting($key)
     {
-
-        $stmt = $this->db->prepare("SELECT pengaturan_value FROM tbl_pengaturan WHERE pengaturan_key = ?");
-        $stmt->bind_param('s', $key);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
-
+        $result = $this->fetchOne("SELECT pengaturan_value FROM tbl_pengaturan WHERE pengaturan_key = :key", ['key' => $key]);
         return $result['pengaturan_value'] ?? '';
     }
 
@@ -33,14 +27,14 @@ class Pengaturan_model extends Model
         $this->db->begin_transaction();
         try
         {
-            $stmt = $this->db->prepare("UPDATE tbl_pengaturan SET pengaturan_value = ? WHERE pengaturan_key = ?");
             foreach ($settings as $key => $value)
             {
-                $stmt->bind_param('ss', $value, $key);
-                $stmt->execute();
+                $this->query("UPDATE tbl_pengaturan SET pengaturan_value = :value WHERE pengaturan_key = :key", [
+                    'value' => $value,
+                    'key' => $key
+                ]);
             }
             $this->db->commit();
-            return [ 'success' => TRUE, 'message' => 'Pengaturan berhasil disimpan.' ];
         } catch (Exception $e)
         {
             $this->db->rollback();
