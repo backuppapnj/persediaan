@@ -16,28 +16,25 @@ class Pengguna_model extends Model
             ORDER BY p.nama_lengkap ASC
         ";
 
-        return $this->db->query($query)->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll($query);
     }
 
     public function getUserById($id)
     {
 
-        $stmt = $this->db->prepare("SELECT id_pengguna, username, nama_lengkap, id_role, id_bagian, is_active FROM tbl_pengguna WHERE id_pengguna = ?");
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        return $stmt->get_result()->fetch_assoc();
+        return $this->fetchOne("SELECT id_pengguna, username, nama_lengkap, id_role, id_bagian, is_active FROM tbl_pengguna WHERE id_pengguna = :id_pengguna", ['id_pengguna' => $id]);
     }
 
     public function getAllRoles()
     {
 
-        return $this->db->query("SELECT id_role, nama_role FROM tbl_roles ORDER BY nama_role")->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll("SELECT id_role, nama_role FROM tbl_roles ORDER BY nama_role");
     }
 
     public function getAllBagian()
     {
 
-        return $this->db->query("SELECT id_bagian, nama_bagian FROM tbl_bagian ORDER BY nama_bagian")->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll("SELECT id_bagian, nama_bagian FROM tbl_bagian ORDER BY nama_bagian");
     }
 
     public function createUser($data)
@@ -54,11 +51,19 @@ class Pengguna_model extends Model
 
         try
         {
-            $stmt = $this->db->prepare("INSERT INTO tbl_pengguna (username, nama_lengkap, password, id_role, id_bagian, is_active) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssiii", $data['username'], $data['nama_lengkap'], $password_hash, $data['id_role'], $data['id_bagian'], $is_active);
-            $stmt->execute();
+            $this->query(
+                "INSERT INTO tbl_pengguna (username, nama_lengkap, password, id_role, id_bagian, is_active) VALUES (:username, :nama_lengkap, :password, :id_role, :id_bagian, :is_active)",
+                [
+                    'username' => $data['username'],
+                    'nama_lengkap' => $data['nama_lengkap'],
+                    'password' => $password_hash,
+                    'id_role' => $data['id_role'],
+                    'id_bagian' => $data['id_bagian'],
+                    'is_active' => $is_active,
+                ]
+            );
             return [ 'success' => TRUE, 'message' => 'Pengguna berhasil ditambahkan.' ];
-        } catch (mysqli_sql_exception $e)
+        } catch (Exception $e)
         {
             log_query("INSERT user", $e->getMessage());
             return [ 'success' => FALSE, 'message' => (ENVIRONMENT === 'development') ? $e->getMessage() : 'Gagal menambahkan pengguna. Username mungkin sudah ada.' ];
@@ -82,17 +87,35 @@ class Pengguna_model extends Model
             {
                 // Jika password diisi, update password
                 $password_hash = password_hash($data['password'], PASSWORD_DEFAULT);
-                $stmt          = $this->db->prepare("UPDATE tbl_pengguna SET username=?, nama_lengkap=?, password=?, id_role=?, id_bagian=?, is_active=? WHERE id_pengguna=?");
-                $stmt->bind_param("sssiiii", $data['username'], $data['nama_lengkap'], $password_hash, $data['id_role'], $data['id_bagian'], $is_active, $id);
+                $this->query(
+                    "UPDATE tbl_pengguna SET username=:username, nama_lengkap=:nama_lengkap, password=:password, id_role=:id_role, id_bagian=:id_bagian, is_active=:is_active WHERE id_pengguna=:id_pengguna",
+                    [
+                        'username' => $data['username'],
+                        'nama_lengkap' => $data['nama_lengkap'],
+                        'password' => $password_hash,
+                        'id_role' => $data['id_role'],
+                        'id_bagian' => $data['id_bagian'],
+                        'is_active' => $is_active,
+                        'id_pengguna' => $id,
+                    ]
+                );
             } else
             {
                 // Jika password kosong, jangan update password
-                $stmt = $this->db->prepare("UPDATE tbl_pengguna SET username=?, nama_lengkap=?, id_role=?, id_bagian=?, is_active=? WHERE id_pengguna=?");
-                $stmt->bind_param("ssiiii", $data['username'], $data['nama_lengkap'], $data['id_role'], $data['id_bagian'], $is_active, $id);
+                $this->query(
+                    "UPDATE tbl_pengguna SET username=:username, nama_lengkap=:nama_lengkap, id_role=:id_role, id_bagian=:id_bagian, is_active=:is_active WHERE id_pengguna=:id_pengguna",
+                    [
+                        'username' => $data['username'],
+                        'nama_lengkap' => $data['nama_lengkap'],
+                        'id_role' => $data['id_role'],
+                        'id_bagian' => $data['id_bagian'],
+                        'is_active' => $is_active,
+                        'id_pengguna' => $id,
+                    ]
+                );
             }
-            $stmt->execute();
             return [ 'success' => TRUE, 'message' => 'Pengguna berhasil diperbarui.' ];
-        } catch (mysqli_sql_exception $e)
+        } catch (Exception $e)
         {
             log_query("UPDATE user", $e->getMessage());
             return [ 'success' => FALSE, 'message' => (ENVIRONMENT === 'development') ? $e->getMessage() : 'Gagal memperbarui pengguna. Username mungkin sudah ada.' ];
@@ -109,11 +132,9 @@ class Pengguna_model extends Model
 
         try
         {
-            $stmt = $this->db->prepare("DELETE FROM tbl_pengguna WHERE id_pengguna = ?");
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
+            $this->query("DELETE FROM tbl_pengguna WHERE id_pengguna = :id_pengguna", ['id_pengguna' => $id]);
             return [ 'success' => TRUE, 'message' => 'Pengguna berhasil dihapus.' ];
-        } catch (mysqli_sql_exception $e)
+        } catch (Exception $e)
         {
             log_query("DELETE user", $e->getMessage());
             return [ 'success' => FALSE, 'message' => (ENVIRONMENT === 'development') ? $e->getMessage() : 'Gagal menghapus pengguna.' ];
