@@ -4,12 +4,13 @@
 define('ROOT_PATH', dirname(__DIR__));
 define('APP_PATH', ROOT_PATH . '/app');
 
+// Global CORS Headers applied to all requests
+header('Access-Control-Allow-Origin: http://localhost:3000');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+
 // Handle CORS preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS')
-{
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: X-Requested-With, X-CSRF-Token, Content-Type');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
