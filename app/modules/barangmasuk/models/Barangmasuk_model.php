@@ -17,13 +17,13 @@ class Barangmasuk_model extends Model
             ORDER BY p.tanggal_permintaan DESC
         ";
 
-        return $this->db->query($query)->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll($query);
     }
 
     public function getRequestDetailsForReceipt($id)
     {
 
-        $stmt = $this->db->prepare("
+        $query = "
             SELECT 
                 d.id_detail_permintaan,
                 d.jumlah_disetujui,
@@ -32,24 +32,27 @@ class Barangmasuk_model extends Model
                 COALESCE(b.nama_barang, d.nama_barang_custom) as nama_barang
             FROM tbl_detail_permintaan_atk d
             LEFT JOIN tbl_barang b ON d.id_barang = b.id_barang
-            WHERE d.id_permintaan = ?
-        ");
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            WHERE d.id_permintaan = :id_permintaan
+        ";
+        return $this->fetchAll($query, ['id_permintaan' => $id]);
     }
 
     public function processReceipt($id_permintaan, $user_id, $itemsAlokasi)
     {
 
-        $this->db->begin_transaction();
+        $this->beginTransaction();
         try
         {
             $no_transaksi = "BM-" . date("Ymd") . "-" . strtoupper(uniqid());
-            $stmt_bm      = $this->db->prepare("INSERT INTO tbl_barang_masuk (no_transaksi_masuk, id_pemasok, tanggal_masuk, id_pengguna_penerima, id_permintaan_terkait) VALUES (?, 1, CURDATE(), ?, ?)");
-            $stmt_bm->bind_param("sii", $no_transaksi, $user_id, $id_permintaan);
-            $stmt_bm->execute();
-            $id_barang_masuk = $this->db->insert_id;
+            $this->query(
+                "INSERT INTO tbl_barang_masuk (no_transaksi_masuk, id_pemasok, tanggal_masuk, id_pengguna_penerima, id_permintaan_terkait) VALUES (:no_transaksi_masuk, 1, CURDATE(), :id_pengguna_penerima, :id_permintaan_terkait)",
+                [
+                    'no_transaksi_masuk' => $no_transaksi,
+                    'id_pengguna_penerima' => $user_id,
+                    'id_permintaan_terkait' => $id_permintaan,
+                ]
+            );
+            $id_barang_masuk = $this->db->lastInsertId();
 
             foreach ($itemsAlokasi as $alokasi)
             {
@@ -62,74 +65,84 @@ class Barangmasuk_model extends Model
 
                 if (is_null($id_barang_final) && !empty($nama_barang_custom))
                 {
-                    $stmt_new_item = $this->db->prepare("INSERT INTO tbl_barang (kode_barang, nama_barang, jenis_barang, id_kategori, id_satuan) VALUES (?, ?, 'habis_pakai', 1, 1)");
                     $kode_baru     = "BRG-NEW-" . strtoupper(uniqid());
-                    $stmt_new_item->bind_param("ss", $kode_baru, $nama_barang_custom);
-                    $stmt_new_item->execute();
-                    $id_barang_final = $this->db->insert_id;
+                    $this->query(
+                        "INSERT INTO tbl_barang (kode_barang, nama_barang, jenis_barang, id_kategori, id_satuan) VALUES (:kode_barang, :nama_barang, 'habis_pakai', 1, 1)",
+                        [
+                            'kode_barang' => $kode_baru,
+                            'nama_barang' => $nama_barang_custom,
+                        ]
+                    );
+                    $id_barang_final = $this->db->lastInsertId();
 
-                    $stmt_update_detail = $this->db->prepare("UPDATE tbl_detail_permintaan_atk SET id_barang = ? WHERE id_detail_permintaan = ?");
-                    $stmt_update_detail->bind_param("ii", $id_barang_final, $detail_permintaan_id);
-                    $stmt_update_detail->execute();
+                    $this->query(
+                        "UPDATE tbl_detail_permintaan_atk SET id_barang = :id_barang WHERE id_detail_permintaan = :id_detail_permintaan",
+                        [
+                            'id_barang' => $id_barang_final,
+                            'id_detail_permintaan' => $detail_permintaan_id,
+                        ]
+                    );
                 }
 
-                $stmt_dbm = $this->db->prepare("INSERT INTO tbl_detail_barang_masuk (id_barang_masuk, id_barang, jumlah_diterima, jumlah_umum, jumlah_perkara) VALUES (?, ?, ?, ?, ?)");
-                $stmt_dbm->bind_param("iiiii", $id_barang_masuk, $id_barang_final, $jumlah_diterima, $alokasi['jumlah_umum'], $alokasi['jumlah_perkara']);
-                $stmt_dbm->execute();
-                $id_detail_masuk = $this->db->insert_id;
+                $this->query(
+                    "INSERT INTO tbl_detail_barang_masuk (id_barang_masuk, id_barang, jumlah_diterima, jumlah_umum, jumlah_perkara) VALUES (:id_barang_masuk, :id_barang, :jumlah_diterima, :jumlah_umum, :jumlah_perkara)",
+                    [
+                        'id_barang_masuk' => $id_barang_masuk,
+                        'id_barang' => $id_barang_final,
+                        'jumlah_diterima' => $jumlah_diterima,
+                        'jumlah_umum' => $alokasi['jumlah_umum'],
+                        'jumlah_perkara' => $alokasi['jumlah_perkara'],
+                    ]
+                );
+                $id_detail_masuk = $this->db->lastInsertId();
 
                 if ($id_barang_final)
                 {
-                    $stmt_get_stok = $this->db->prepare("SELECT stok_umum, stok_perkara FROM tbl_barang WHERE id_barang = ?");
-                    $stmt_get_stok->bind_param("i", $id_barang_final);
-                    $stmt_get_stok->execute();
-                    $stok_sebelum = $stmt_get_stok->get_result()->fetch_assoc() ?: [ 'stok_umum' => 0, 'stok_perkara' => 0 ];
+                    $stok_sebelum = $this->fetchOne("SELECT stok_umum, stok_perkara FROM tbl_barang WHERE id_barang = :id_barang", ['id_barang' => $id_barang_final]) ?: [ 'stok_umum' => 0, 'stok_perkara' => 0 ];
 
-                    $stmt_update_stok = $this->db->prepare("UPDATE tbl_barang SET stok_umum = stok_umum + ?, stok_perkara = stok_perkara + ? WHERE id_barang = ?");
-                    $stmt_update_stok->bind_param("iii", $alokasi['jumlah_umum'], $alokasi['jumlah_perkara'], $id_barang_final);
-                    $stmt_update_stok->execute();
+                    $this->query(
+                        "UPDATE tbl_barang SET stok_umum = stok_umum + :jumlah_umum, stok_perkara = stok_perkara + :jumlah_perkara WHERE id_barang = :id_barang",
+                        [
+                            'jumlah_umum' => $alokasi['jumlah_umum'],
+                            'jumlah_perkara' => $alokasi['jumlah_perkara'],
+                            'id_barang' => $id_barang_final,
+                        ]
+                    );
 
                     $stok_sesudah_umum    = $stok_sebelum['stok_umum'] + $alokasi['jumlah_umum'];
                     $stok_sesudah_perkara = $stok_sebelum['stok_perkara'] + $alokasi['jumlah_perkara'];
                     $keterangan_log       = "Penerimaan barang dari permintaan #" . $id_permintaan;
-                    $stmt_log             = $this->db->prepare("INSERT INTO tbl_log_stok (id_barang, jenis_transaksi, jumlah_ubah, stok_sebelum_umum, stok_sesudah_umum, stok_sebelum_perkara, stok_sesudah_perkara, id_referensi, keterangan, id_pengguna_aksi) VALUES (?, 'masuk', ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt_log->bind_param(
-                        "iiiiiiisi",
-                        $id_barang_final,
-                        $jumlah_diterima,
-                        $stok_sebelum['stok_umum'],
-                        $stok_sesudah_umum,
-                        $stok_sebelum['stok_perkara'],
-                        $stok_sesudah_perkara,
-                        $id_detail_masuk,
-                        $keterangan_log,
-                        $user_id,
+                    $this->query(
+                        "INSERT INTO tbl_log_stok (id_barang, jenis_transaksi, jumlah_ubah, stok_sebelum_umum, stok_sesudah_umum, stok_sebelum_perkara, stok_sesudah_perkara, id_referensi, keterangan, id_pengguna_aksi) VALUES (:id_barang, 'masuk', :jumlah_ubah, :stok_sebelum_umum, :stok_sesudah_umum, :stok_sebelum_perkara, :stok_sesudah_perkara, :id_referensi, :keterangan, :id_pengguna_aksi)",
+                        [
+                            'id_barang' => $id_barang_final,
+                            'jumlah_ubah' => $jumlah_diterima,
+                            'stok_sebelum_umum' => $stok_sebelum['stok_umum'],
+                            'stok_sesudah_umum' => $stok_sesudah_umum,
+                            'stok_sebelum_perkara' => $stok_sebelum['stok_perkara'],
+                            'stok_sesudah_perkara' => $stok_sesudah_perkara,
+                            'id_referensi' => $id_detail_masuk,
+                            'keterangan' => $keterangan_log,
+                            'id_pengguna_aksi' => $user_id,
+                        ]
                     );
-                    $stmt_log->execute();
                 }
 
-                $stmt_update_item_status = $this->db->prepare("UPDATE tbl_detail_permintaan_atk SET status_item = 'Selesai Diterima' WHERE id_detail_permintaan = ?");
-                $stmt_update_item_status->bind_param("i", $detail_permintaan_id);
-                $stmt_update_item_status->execute();
+                $this->query("UPDATE tbl_detail_permintaan_atk SET status_item = 'Selesai Diterima' WHERE id_detail_permintaan = :id_detail_permintaan", ['id_detail_permintaan' => $detail_permintaan_id]);
             }
 
-            $stmt_check_all = $this->db->prepare("SELECT COUNT(*) as total FROM tbl_detail_permintaan_atk WHERE id_permintaan = ? AND status_item IS NULL");
-            $stmt_check_all->bind_param("i", $id_permintaan);
-            $stmt_check_all->execute();
-            $sisa_item = $stmt_check_all->get_result()->fetch_assoc()['total'];
+            $sisa_item = $this->fetchOne("SELECT COUNT(*) as total FROM tbl_detail_permintaan_atk WHERE id_permintaan = :id_permintaan AND status_item IS NULL", ['id_permintaan' => $id_permintaan])['total'];
 
             if ($sisa_item == 0)
             {
-                $stmt_update_req = $this->db->prepare("UPDATE tbl_permintaan_atk SET status_permintaan = 'Selesai' WHERE id_permintaan = ?");
-                $stmt_update_req->bind_param("i", $id_permintaan);
-                $stmt_update_req->execute();
+                $this->query("UPDATE tbl_permintaan_atk SET status_permintaan = 'Selesai' WHERE id_permintaan = :id_permintaan", ['id_permintaan' => $id_permintaan]);
             }
 
-            $this->db->commit();
+            $this->commit();
             return [ 'success' => TRUE, 'message' => 'Penerimaan barang berhasil diproses.' ];
         } catch (Exception $e)
         {
-            $this->db->rollback();
+            $this->rollback();
             log_query("Proses Penerimaan", $e->getMessage());
             $msg = (ENVIRONMENT === 'development') ? $e->getMessage() : 'Terjadi kesalahan saat memproses penerimaan.';
             return [ 'success' => FALSE, 'message' => $msg ];
