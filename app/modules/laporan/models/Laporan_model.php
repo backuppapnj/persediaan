@@ -24,7 +24,7 @@ class Laporan_model extends Model
             ORDER BY b.nama_barang ASC
         ";
 
-        return $this->db->query($query)->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll($query);
     }
 
     public function getStockCard($id_barang)
@@ -34,84 +34,73 @@ class Laporan_model extends Model
         {
             return [];
         }
-        $stmt = $this->db->prepare("
+        $query = "
             SELECT l.*, u.nama_lengkap as nama_pengguna
             FROM tbl_log_stok l
             LEFT JOIN tbl_pengguna u ON l.id_pengguna_aksi = u.id_pengguna
-            WHERE l.id_barang = ?
+            WHERE l.id_barang = :id_barang
             ORDER BY l.tanggal_log DESC
-        ");
-        $stmt->bind_param('i', $id_barang);
-        $stmt->execute();
-        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        ";
+        return $this->fetchAll($query, ['id_barang' => $id_barang]);
     }
 
     private function applyDateFilter($query, $filters)
     {
 
         $params = [];
-        $types  = '';
         if (!empty($filters['start_date']))
         {
-            $query .= " AND p.tanggal_permintaan >= ?";
-            $params[] = $filters['start_date'];
-            $types .= 's';
+            $query .= " AND p.tanggal_permintaan >= :start_date";
+            $params['start_date'] = $filters['start_date'];
         }
         if (!empty($filters['end_date']))
         {
-            $query .= " AND p.tanggal_permintaan <= ?";
-            $params[] = $filters['end_date'];
-            $types .= 's';
+            $query .= " AND p.tanggal_permintaan <= :end_date";
+            $params['end_date'] = $filters['end_date'];
         }
-        return [ 'query' => $query, 'params' => $params, 'types' => $types ];
+        return [ 'query' => $query, 'params' => $params, 'types' => '' ];
     }
 
     public function getPermintaanReport($filters)
     {
 
         $query = "SELECT * FROM v_permintaan_lengkap p WHERE 1=1";
+        $params = [];
 
         if (!empty($filters['status']) && $filters['status'] !== 'semua')
         {
-            $query .= " AND p.status_permintaan = '" . $this->db->real_escape_string($filters['status']) . "'";
+            $query .= " AND p.status_permintaan = :status";
+            $params['status'] = $filters['status'];
         }
 
         $dateFilter = $this->applyDateFilter($query, $filters);
         $query      = $dateFilter['query'];
+        $params     = array_merge($params, $dateFilter['params']);
 
         $query .= " ORDER BY p.tanggal_permintaan DESC";
 
-        $stmt = $this->db->prepare($query);
-        if (!empty($dateFilter['params']))
-        {
-            $stmt->bind_param($dateFilter['types'], ...$dateFilter['params']);
-        }
-        $stmt->execute();
-        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll($query, $params);
     }
 
     public function getPembelianReport($filters)
     {
 
         $query = "SELECT * FROM v_permintaan_lengkap p WHERE p.tipe_permintaan = 'pembelian'";
+        $params = [];
 
         if (!empty($filters['status']) && $filters['status'] !== 'semua')
         {
-            $query .= " AND p.status_permintaan = '" . $this->db->real_escape_string($filters['status']) . "'";
+            $query .= " AND p.status_permintaan = :status";
+            $params['status'] = $filters['status'];
         }
 
         $dateFilter = $this->applyDateFilter($query, $filters);
         $query      = $dateFilter['query'];
+        $params     = array_merge($params, $dateFilter['params']);
 
         $query .= " ORDER BY p.tanggal_permintaan DESC";
 
-        $stmt = $this->db->prepare($query);
-        if (!empty($dateFilter['params']))
-        {
-            $stmt->bind_param($dateFilter['types'], ...$dateFilter['params']);
-        }
-        $stmt->execute();
-        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll($query, $params);
     }
 
 }
