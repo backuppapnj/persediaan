@@ -1,5 +1,7 @@
 <?php
 
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 class Controller
 {
 
@@ -205,4 +207,18 @@ class Controller
         return $this->validateEncryptedId($encryptedId, $redirectOnFail);
     }
 
+    protected function validateJwt()
+    {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+            $token = $matches[1];
+            try {
+                $decoded = JWT::decode($token, new Key(ENCRYPTION_KEY, 'HS256'));
+                return (array) $decoded;
+            } catch (Exception $e) {
+                $this->jsonResponse(['success' => false, 'message' => 'Token tidak valid atau kadaluarsa'], 401);
+            }
+        }
+        $this->jsonResponse(['success' => false, 'message' => 'Token diperlukan'], 401);
+    }
 }
