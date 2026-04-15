@@ -15,7 +15,7 @@ class Stockopname_model extends Model
             ORDER BY so.tanggal_opname DESC, so.id_opname DESC
         ";
 
-        return $this->db->query($query)->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll($query);
     }
 
     public function getOpnameDetailsById($id_opname)
@@ -24,15 +24,12 @@ class Stockopname_model extends Model
         $response = [ 'main' => NULL, 'items' => [] ];
 
         // Get main data
-        $stmt_main = $this->db->prepare("
+        $main_data = $this->fetchOne("
             SELECT so.*, u.nama_lengkap as nama_penanggung_jawab
             FROM tbl_stock_opname so
             JOIN tbl_pengguna u ON so.id_pengguna_penanggung_jawab = u.id_pengguna
-            WHERE so.id_opname = ?
-        ");
-        $stmt_main->bind_param('i', $id_opname);
-        $stmt_main->execute();
-        $main_data = $stmt_main->get_result()->fetch_assoc();
+            WHERE so.id_opname = :id_opname
+        ", ['id_opname' => $id_opname]);
 
         if (!$main_data)
         {
@@ -41,19 +38,16 @@ class Stockopname_model extends Model
         $response['main'] = $main_data;
 
         // Get item details
-        $stmt_items = $this->db->prepare("
+        $response['items'] = $this->fetchAll("
             SELECT 
                 dso.*, 
                 b.nama_barang, 
                 b.kode_barang
             FROM tbl_detail_stock_opname dso
             JOIN tbl_barang b ON dso.id_barang = b.id_barang
-            WHERE dso.id_opname = ?
+            WHERE dso.id_opname = :id_opname
             ORDER BY b.nama_barang ASC
-        ");
-        $stmt_items->bind_param('i', $id_opname);
-        $stmt_items->execute();
-        $response['items'] = $stmt_items->get_result()->fetch_all(MYSQLI_ASSOC);
+        ", ['id_opname' => $id_opname]);
 
         return $response;
     }
@@ -65,15 +59,13 @@ class Stockopname_model extends Model
             SELECT id_barang, kode_barang, nama_barang, stok_umum, stok_perkara 
             FROM tbl_barang WHERE deleted_at IS NULL ORDER BY nama_barang ASC
         ";
-        return $this->db->query($query)->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll($query);
     }
 
     public function isOpnameFinalizedForCurrentMonth()
     {
 
-        $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM tbl_stock_opname WHERE MONTH(tanggal_opname) = MONTH(CURDATE()) AND YEAR(tanggal_opname) = YEAR(CURDATE()) AND status = 'Selesai'");
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
+        $result = $this->fetchOne("SELECT COUNT(*) as total FROM tbl_stock_opname WHERE MONTH(tanggal_opname) = MONTH(CURDATE()) AND YEAR(tanggal_opname) = YEAR(CURDATE()) AND status = 'Selesai'");
         return $result['total'] > 0;
     }
 
@@ -85,15 +77,20 @@ class Stockopname_model extends Model
             return [ 'success' => FALSE, 'message' => 'Tidak ada data barang yang diproses.' ];
         }
 
-        $this->db->begin_transaction();
+        $this->beginTransaction();
         try
         {
             $kode_opname = "OPN-" . date("Ymd-His");
             // [DIUBAH] Menambahkan status 'Selesai' saat menyimpan
-            $stmt_opname = $this->db->prepare("INSERT INTO tbl_stock_opname (kode_opname, tanggal_opname, id_pengguna_penanggung_jawab, keterangan, status) VALUES (?, CURDATE(), ?, ?, 'Selesai')");
-            $stmt_opname->bind_param('sis', $kode_opname, $user_id, $keterangan);
-            $stmt_opname->execute();
-            $id_opname = $this->db->insert_id;
+            $this->query(
+                "INSERT INTO tbl_stock_opname (kode_opname, tanggal_opname, id_pengguna_penanggung_jawab, keterangan, status) VALUES (:kode_opname, CURDATE(), :id_pengguna_penanggung_jawab, :keterangan, 'Selesai')",
+                [
+                    'kode_opname' => $kode_opname,
+                    'id_pengguna_penanggung_jawab' => $user_id,
+                    'keterangan' => $keterangan,
+                ]
+            );
+            $id_opname = $this->db->lastInsertId();
 
             foreach ($items as $item)
             {
@@ -106,31 +103,58 @@ class Stockopname_model extends Model
                 $selisih_perkara     = $stok_fisik_perkara - $stok_sistem_perkara;
                 $catatan             = $item['catatan'] ?? NULL;
 
-                $stmt_detail = $this->db->prepare("INSERT INTO tbl_detail_stock_opname (id_opname, id_barang, stok_sistem_umum, stok_sistem_perkara, stok_fisik_umum, stok_fisik_perkara, selisih_umum, selisih_perkara, catatan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt_detail->bind_param("iiiiiiiis", $id_opname, $id_barang, $stok_sistem_umum, $stok_sistem_perkara, $stok_fisik_umum, $stok_fisik_perkara, $selisih_umum, $selisih_perkara, $catatan);
-                $stmt_detail->execute();
+                $this->query(
+                    "INSERT INTO tbl_detail_stock_opname (id_opname, id_barang, stok_sistem_umum, stok_sistem_perkara, stok_fisik_umum, stok_fisik_perkara, selisih_umum, selisih_perkara, catatan) VALUES (:id_opname, :id_barang, :stok_sistem_umum, :stok_sistem_perkara, :stok_fisik_umum, :stok_fisik_perkara, :selisih_umum, :selisih_perkara, :catatan)",
+                    [
+                        'id_opname' => $id_opname,
+                        'id_barang' => $id_barang,
+                        'stok_sistem_umum' => $stok_sistem_umum,
+                        'stok_sistem_perkara' => $stok_sistem_perkara,
+                        'stok_fisik_umum' => $stok_fisik_umum,
+                        'stok_fisik_perkara' => $stok_fisik_perkara,
+                        'selisih_umum' => $selisih_umum,
+                        'selisih_perkara' => $selisih_perkara,
+                        'catatan' => $catatan,
+                    ]
+                );
 
                 if (($stok_sistem_umum !== $stok_fisik_umum) || ($stok_sistem_perkara !== $stok_fisik_perkara))
                 {
-                    $stmt_update = $this->db->prepare("UPDATE tbl_barang SET stok_umum = ?, stok_perkara = ? WHERE id_barang = ?");
-                    $stmt_update->bind_param("iii", $stok_fisik_umum, $stok_fisik_perkara, $id_barang);
-                    $stmt_update->execute();
+                    $this->query(
+                        "UPDATE tbl_barang SET stok_umum = :stok_umum, stok_perkara = :stok_perkara WHERE id_barang = :id_barang",
+                        [
+                            'stok_umum' => $stok_fisik_umum,
+                            'stok_perkara' => $stok_fisik_perkara,
+                            'id_barang' => $id_barang,
+                        ]
+                    );
                 }
 
                 $jumlah_ubah_total = ($stok_fisik_umum + $stok_fisik_perkara) - ($stok_sistem_umum + $stok_sistem_perkara);
                 $log_keterangan    = "Stock Opname: {$kode_opname}.";
 
-                $stmt_log = $this->db->prepare("INSERT INTO tbl_log_stok (id_barang, jenis_transaksi, jumlah_ubah, stok_sebelum_umum, stok_sesudah_umum, stok_sebelum_perkara, stok_sesudah_perkara, id_referensi, keterangan, id_pengguna_aksi) VALUES (?, 'penyesuaian', ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt_log->bind_param("iiiiiiisi", $id_barang, $jumlah_ubah_total, $stok_sistem_umum, $stok_fisik_umum, $stok_sistem_perkara, $stok_fisik_perkara, $id_opname, $log_keterangan, $user_id);
-                $stmt_log->execute();
+                $this->query(
+                    "INSERT INTO tbl_log_stok (id_barang, jenis_transaksi, jumlah_ubah, stok_sebelum_umum, stok_sesudah_umum, stok_sebelum_perkara, stok_sesudah_perkara, id_referensi, keterangan, id_pengguna_aksi) VALUES (:id_barang, 'penyesuaian', :jumlah_ubah, :stok_sebelum_umum, :stok_sesudah_umum, :stok_sebelum_perkara, :stok_sesudah_perkara, :id_referensi, :keterangan, :id_pengguna_aksi)",
+                    [
+                        'id_barang' => $id_barang,
+                        'jumlah_ubah' => $jumlah_ubah_total,
+                        'stok_sebelum_umum' => $stok_sistem_umum,
+                        'stok_sesudah_umum' => $stok_fisik_umum,
+                        'stok_sebelum_perkara' => $stok_sistem_perkara,
+                        'stok_sesudah_perkara' => $stok_fisik_perkara,
+                        'id_referensi' => $id_opname,
+                        'keterangan' => $log_keterangan,
+                        'id_pengguna_aksi' => $user_id,
+                    ]
+                );
             }
 
-            $this->db->commit();
+            $this->commit();
             return [ 'success' => TRUE, 'message' => 'Stock opname berhasil disimpan.' ];
 
         } catch (Exception $e)
         {
-            $this->db->rollback();
+            $this->rollback();
             log_query("Save Stock Opname", $e->getMessage());
             $msg = (ENVIRONMENT === 'development') ? $e->getMessage() : 'Gagal menyimpan data stock opname.';
             return [ 'success' => FALSE, 'message' => $msg ];
