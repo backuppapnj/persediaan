@@ -37,26 +37,45 @@ class Auth extends Controller
     public function api($method = '')
     {
         header('Content-Type: application/json');
-        if ($method === 'process_login') {
-            $input = json_decode(file_get_contents('php://input'), true);
-            $result = $this->authModel->processLogin($input['username'] ?? '', $input['password'] ?? '');
-            
-            if ($result['success'] === true) {
-                $token = JwtHelper::generateToken($result['user']);
-                $userData = [
-                    'id' => $result['user']['id_pengguna'],
-                    'username' => $result['user']['username'],
-                    'role' => $result['user']['nama_role']
-                ];
-                echo json_encode(['success' => true, 'token' => $token, 'user' => $userData]);
+        switch ($method) {
+            case 'process_login':
+                $input = json_decode(file_get_contents('php://input'), true);
+                $result = $this->authModel->processLogin($input['username'] ?? '', $input['password'] ?? '');
+
+                if ($result['success'] === true) {
+                    $token = JwtHelper::generateToken($result['user']);
+                    $userData = [
+                        'id' => $result['user']['id_pengguna'],
+                        'username' => $result['user']['username'],
+                        'role' => $result['user']['nama_role']
+                    ];
+                    echo json_encode(['success' => true, 'token' => $token, 'user' => $userData]);
+                    return;
+                }
+                http_response_code(401);
+                echo json_encode($result);
                 return;
-            }
-            http_response_code(401);
-            echo json_encode($result);
-            return;
-        } else {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Unknown method']);
+
+            case 'me':
+                // Validate JWT token
+                $decoded = $this->validateJwt();
+                $user = $decoded['user'];
+
+                echo json_encode([
+                    'success' => true,
+                    'user' => [
+                        'id' => $user['id'],
+                        'username' => $user['email'],
+                        'name' => $user['name'],
+                        'role' => $user['role']
+                    ]
+                ]);
+                return;
+
+            default:
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Unknown method']);
+                return;
         }
     }
 
