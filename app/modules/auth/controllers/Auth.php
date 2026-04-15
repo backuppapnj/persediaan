@@ -1,5 +1,6 @@
 <?php
 
+use Firebase\JWT\JWT;
 require_once APP_PATH . '/core/Controller.php';
 
 class Auth extends Controller
@@ -36,40 +37,25 @@ class Auth extends Controller
 
     public function api($method = '')
     {
-
         header('Content-Type: application/json');
-
-        $is_ajax    = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-        $csrf_token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-
-        if (!$is_ajax || empty($csrf_token) || !isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrf_token))
-        {
-            http_response_code(403);
-            echo json_encode([ 'success' => FALSE, 'message' => 'Akses tidak sah.' ]);
-
-            return;
-        }
-
-        if ($method === 'process_login')
-        {
-            $input    = json_decode(file_get_contents('php://input'), TRUE);
-            $username = $input['username'] ?? '';
-            $password = $input['password'] ?? '';
-
-            // Validasi server-side
-            if (empty($username) || empty($password))
-            {
-                http_response_code(400);
-                echo json_encode([ 'success' => FALSE, 'message' => 'Username dan password wajib diisi.' ]);
+        if ($method === 'process_login') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $result = $this->authModel->processLogin($input['username'] ?? '', $input['password'] ?? '');
+            
+            if ($result['success']) {
+                $payload = [
+                    'iss' => BASE_URL,
+                    'iat' => time(),
+                    'exp' => time() + (60 * 60 * 24), // 24 jam
+                    'data' => [
+                        'id' => $result['user']['id_pengguna'],
+                        'username' => $result['user']['username'],
+                        'role' => $result['user']['nama_role']
+                    ]
+                ];
+                $token = JWT::encode($payload, ENCRYPTION_KEY, 'HS256');
+                echo json_encode(['success' => true, 'token' => $token, 'user' => $payload['data']]);
                 return;
-            }
-
-            try
-            {
-                $result = $this->authModel->processLogin($username, $password);
-            } catch (PDOException $e)
-            {
-                echo "Database Error: " . $e->getMessage();
             }
             echo json_encode($result);
         }

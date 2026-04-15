@@ -10,25 +10,11 @@ class Auth_model extends Model
      */
     public function processLogin($username, $password)
     {
-
         $user = $this->getUserByUsername($username);
-
-        $attempts = $_SESSION['login_attempts'][$username] ?? NULL;
-        if ($attempts && $attempts['attempts'] >= MAX_LOGIN_ATTEMPTS && (time() - $attempts['last_attempt']) < LOCKOUT_TIME)
-        {
-            return [ 'success' => FALSE, 'message' => 'Terlalu banyak percobaan. Akun terkunci selama 5 menit.' ];
+        if ($user && password_verify($password, $user['password'])) {
+            return ['success' => true, 'user' => $user];
         }
-
-        if ($user && password_verify($password, $user['password']))
-        {
-            $this->clearLoginAttempts($username);
-            $this->createUserSession($user);
-            return [ 'success' => TRUE, 'message' => 'Login berhasil!', 'redirect_url' => BASE_URL . '/dashboard' ];
-        } else
-        {
-            $this->recordLoginAttempt($username);
-            return [ 'success' => FALSE, 'message' => 'Username atau password salah.' ];
-        }
+        return ['success' => false, 'message' => 'Username atau password salah.'];
     }
 
     private function createUserSession($user)
@@ -48,35 +34,28 @@ class Auth_model extends Model
 
     public function getUserByUsername($username)
     {
-
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT u.*, r.nama_role 
             FROM tbl_pengguna u 
             LEFT JOIN tbl_roles r ON u.id_role = r.id_role
-            WHERE u.username = ? AND u.is_active = 1
-        ");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        return $stmt->get_result()->fetch_assoc();
+            WHERE u.username = :username AND u.is_active = 1
+        ";
+        return $this->fetchOne($sql, ['username' => $username]);
     }
 
     public function getUserPermissions($id_role)
     {
-
         $permissions = [];
         if (empty($id_role)) return $permissions;
 
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT p.nama_permission 
             FROM tbl_role_permissions rp
             JOIN tbl_permissions p ON rp.id_permission = p.id_permission
-            WHERE rp.id_role = ?
-        ");
-        $stmt->bind_param("i", $id_role);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc())
-        {
+            WHERE rp.id_role = :id_role
+        ";
+        $results = $this->fetchAll($sql, ['id_role' => $id_role]);
+        foreach ($results as $row) {
             $permissions[] = $row['nama_permission'];
         }
         return $permissions;
