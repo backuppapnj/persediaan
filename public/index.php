@@ -72,6 +72,7 @@ require_once APP_PATH . '/core/Encryption.php';
 require_once APP_PATH . '/core/Model.php';
 require_once APP_PATH . '/core/Controller.php';
 require_once APP_PATH . '/core/Router.php';
+require_once APP_PATH . '/core/JwtHelper.php';
 
 // Handle errors gracefully
 set_exception_handler(function ($exception)

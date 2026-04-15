@@ -1,6 +1,5 @@
 <?php
 
-use Firebase\JWT\JWT;
 require_once APP_PATH . '/core/Controller.php';
 
 class Auth extends Controller
@@ -42,22 +41,22 @@ class Auth extends Controller
             $input = json_decode(file_get_contents('php://input'), true);
             $result = $this->authModel->processLogin($input['username'] ?? '', $input['password'] ?? '');
             
-            if ($result['success']) {
-                $payload = [
-                    'iss' => BASE_URL,
-                    'iat' => time(),
-                    'exp' => time() + (60 * 60 * 24), // 24 jam
-                    'data' => [
-                        'id' => $result['user']['id_pengguna'],
-                        'username' => $result['user']['username'],
-                        'role' => $result['user']['nama_role']
-                    ]
+            if ($result['success'] === true) {
+                $token = JwtHelper::generateToken($result['user']);
+                $userData = [
+                    'id' => $result['user']['id_pengguna'],
+                    'username' => $result['user']['username'],
+                    'role' => $result['user']['nama_role']
                 ];
-                $token = JWT::encode($payload, ENCRYPTION_KEY, 'HS256');
-                echo json_encode(['success' => true, 'token' => $token, 'user' => $payload['data']]);
+                echo json_encode(['success' => true, 'token' => $token, 'user' => $userData]);
                 return;
             }
+            http_response_code(401);
             echo json_encode($result);
+            return;
+        } else {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Unknown method']);
         }
     }
 
