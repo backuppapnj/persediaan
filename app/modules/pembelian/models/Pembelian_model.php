@@ -23,30 +23,31 @@ class Pembelian_model extends Model
             ORDER BY p.tanggal_permintaan DESC
         ";
 
-        return $this->db->query($query)->fetch_all(MYSQLI_ASSOC);
+        return $this->fetchAll($query);
     }
 
     // [FITUR BARU] Method untuk mengubah status menjadi "Sudah Dibeli"
     public function markAsPurchased($id, $user_id)
     {
 
-        $this->db->begin_transaction();
+        $this->beginTransaction();
         try
         {
-            $stmt = $this->db->prepare("UPDATE tbl_permintaan_atk SET status_permintaan = 'Sudah Dibeli', id_pengguna_pembelian = ? WHERE id_permintaan = ? AND status_permintaan = 'Diproses Pembelian'");
-            $stmt->bind_param("ii", $user_id, $id);
-            $stmt->execute();
+            $stmt = $this->query("UPDATE tbl_permintaan_atk SET status_permintaan = 'Sudah Dibeli', id_pengguna_pembelian = :id_pengguna_pembelian WHERE id_permintaan = :id_permintaan AND status_permintaan = 'Diproses Pembelian'", [
+                'id_pengguna_pembelian' => $user_id,
+                'id_permintaan' => $id,
+            ]);
 
-            if ($stmt->affected_rows === 0)
+            if ($stmt->rowCount() === 0)
             {
                 throw new Exception("Gagal memperbarui status. Permintaan mungkin sudah diproses atau tidak ditemukan.");
             }
 
-            $this->db->commit();
+            $this->commit();
             return [ 'success' => TRUE, 'message' => 'Permintaan berhasil ditandai sebagai "Sudah Dibeli".' ];
         } catch (Exception $e)
         {
-            $this->db->rollback();
+            $this->rollback();
             log_query('', $e->getMessage());
             $msg = (ENVIRONMENT === 'development') ? $e->getMessage() : 'Terjadi kesalahan saat memproses data.';
             return [ 'success' => FALSE, 'message' => $msg ];
