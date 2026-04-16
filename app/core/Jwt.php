@@ -1,7 +1,14 @@
 <?php
 
 class Jwt {
-    private static $secret = JWT_SECRET;
+    private static ?string $secret = null;
+
+    private static function getSecret(): string {
+        if (self::$secret === null) {
+            self::$secret = $_ENV['JWT_SECRET'] ?? JWT_SECRET;
+        }
+        return self::$secret;
+    }
 
     /**
      * Membuat JWT token dengan HS256 algorithm.
@@ -17,7 +24,7 @@ class Jwt {
         $base64Header = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
         $base64Payload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
 
-        $signature = hash_hmac('sha256', $base64Header . "." . $base64Payload, self::$secret, true);
+        $signature = hash_hmac('sha256', $base64Header . "." . $base64Payload, self::getSecret(), true);
         $base64Signature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
 
         return $base64Header . "." . $base64Payload . "." . $base64Signature;
@@ -36,10 +43,15 @@ class Jwt {
 
         list($header, $payload, $signature) = $parts;
 
-        $signatureCheck = hash_hmac('sha256', $header . "." . $payload, self::$secret, true);
-        $base64SignatureCheck = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signatureCheck));
+        // Decode signature from URL-safe base64 to raw bytes
+        $signature = str_replace(['-', '_'], ['+', '/'], $signature);
+        $signature = base64_decode($signature, true);
 
-        if (!hash_equals($signature, $base64SignatureCheck)) return null;
+        // Compute expected signature
+        $expected = hash_hmac('sha256', $header . "." . $payload, self::getSecret(), true);
+
+        // Timing-safe comparison
+        if ($signature === false || !hash_equals($expected, $signature)) return null;
 
         $decodedPayload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $payload)), true);
 
