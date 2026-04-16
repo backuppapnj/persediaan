@@ -24,14 +24,33 @@ export const pembelianApi = {
    * Mengambil daftar permintaan pembelian yang perlu diproses
    */
   getPurchaseRequests: async (): Promise<PurchaseRequest[]> => {
-    const response = await api.post<ApiResponse<PurchaseRequest[]>>('/pembelian/api/getPurchaseRequests');
-    return response.data;
+    try {
+      const response = await api.post<ApiResponse<PurchaseRequest[]>>('/pembelian/api/getPurchaseRequests');
+      // Validasi struktur response
+      if (!response.data || !Array.isArray(response.data)) {
+        throw new Error('Struktur respons tidak valid: array yang diharapkan');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Gagal mengambil permintaan pembelian:', error);
+      throw error;
+    }
   },
 
   /**
    * Menandai permintaan pembelian sebagai sudah dibeli
    */
   markAsPurchased: async (id: string): Promise<ApiResponse<null>> => {
-    return await api.post<ApiResponse<null>>('/pembelian/api/markAsPurchased', { id });
+    try {
+      const response = await api.post<ApiResponse<null>>('/pembelian/api/markAsPurchased', { id });
+      // Validasi struktur response
+      if (!response.data || typeof response.data !== 'object') {
+        throw new Error('Struktur respons tidak valid');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Gagal menandai sebagai sudah dibeli:', error);
+      throw error;
+    }
   },
 };
