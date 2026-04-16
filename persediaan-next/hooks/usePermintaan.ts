@@ -9,7 +9,6 @@ import {
   CreatePermintaanValues,
   ApprovalValues,
   Barang,
-  PaginatedResponse as PaginatedResponseT,
 } from '@/lib/api/permintaan';
 
 /**
@@ -190,7 +189,7 @@ export function useBarangs() {
 export function useUsers() {
   return useQuery<Array<{ id: string; name: string; email: string; avatar?: string }>>({
     queryKey: ['users-list'],
-    query: permintaanApi.getUsers,
+    queryFn: permintaanApi.getUsers,
     staleTime: 10 * 60 * 1000, // Data dianggap segar selama 10 menit
   });
 }
