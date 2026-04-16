@@ -5,7 +5,7 @@ class Jwt {
 
     private static function getSecret(): string {
         if (self::$secret === null) {
-            self::$secret = $_ENV['JWT_SECRET'] ?? JWT_SECRET;
+            self::$secret = $_ENV['JWT_SECRET'] ?? throw new Exception('JWT_SECRET not configured');
         }
         return self::$secret;
     }
