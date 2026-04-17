@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +17,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -114,50 +124,11 @@ export default function PermintaanPage() {
   const { data: userListData } = useUsers();
 
   // Mutations
-  const createMutation = useCreatePermintaan({
-    page,
-    search: debouncedSearch,
-    startDate,
-    endDate,
-    status: statusFilter,
-    userId: userFilter,
-  });
-
-  const approveMutation = useApprovePermintaan({
-    page,
-    search: debouncedSearch,
-    startDate,
-    endDate,
-    status: statusFilter,
-    userId: userFilter,
-  });
-
-  const rejectMutation = useRejectPermintaan({
-    page,
-    search: debouncedSearch,
-    startDate,
-    endDate,
-    status: statusFilter,
-    userId: userFilter,
-  });
-
-  const issueMutation = useIssuePermintaan({
-    page,
-    search: debouncedSearch,
-    startDate,
-    endDate,
-    status: statusFilter,
-    userId: userFilter,
-  });
-
-  const submitForApprovalMutation = useSubmitForApproval({
-    page,
-    search: debouncedSearch,
-    startDate,
-    endDate,
-    status: statusFilter,
-    userId: userFilter,
-  });
+  const createMutation = useCreatePermintaan();
+  const approveMutation = useApprovePermintaan();
+  const rejectMutation = useRejectPermintaan();
+  const issueMutation = useIssuePermintaan();
+  const submitForApprovalMutation = useSubmitForApproval();
 
   // Handler functions
   const handleAddSubmit = (values: any) => {
@@ -316,27 +287,61 @@ export default function PermintaanPage() {
                 >
                   <Check className="h-4 w-4 text-green-600" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleReject(permintaan)}
-                  className="h-8 w-8 p-0"
-                  aria-label={`Tolak ${permintaan.nomor}`}
-                >
-                  <XCircle className="h-4 w-4 text-red-600" />
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label={`Tolak ${permintaan.nomor}`}
+                    >
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Konfirmasi Penolakan</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Apakah Anda yakin ingin menolak permintaan ini? Tindakan ini tidak dapat dibatalkan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleReject(permintaan)}>
+                        Ya, Tolak
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </>
             )}
             {permintaan.status === 'disetujui' && hasWarehouseRole && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleIssue(permintaan)}
-                className="h-8 w-8 p-0"
-                aria-label={`Keluarkan barang ${permintaan.nomor}`}
-              >
-                <Truck className="h-4 w-4 text-blue-600" />
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label={`Keluarkan barang ${permintaan.nomor}`}
+                  >
+                    <Truck className="h-4 w-4 text-blue-600" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Konfirmasi Pengeluaran Barang</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Apakah Anda yakin ingin mengeluarkan barang untuk permintaan ini? Stok barang akan berkurang.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleIssue(permintaan)}>
+                      Ya, Keluarkan
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         );

@@ -78,26 +78,38 @@ class Controller
         exit();
     }
 
-    protected function json($data, $statusCode = 200)
+    protected function json($data, $message = '', $errors = [], $statusCode = 200)
     {
 
         header('Content-Type: application/json');
-        header('Access-Control-Allow-Origin: *');
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-CSRF-Token');
+
+        // Atur CORS origin berdasarkan konfigurasi environment
+        $allowedOrigins = isset($_ENV['CORS_ALLOWED_ORIGINS'])
+            ? explode(',', $_ENV['CORS_ALLOWED_ORIGINS'])
+            : ['*'];
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        if (in_array('*', $allowedOrigins) || in_array($origin, $allowedOrigins)) {
+            header('Access-Control-Allow-Origin: ' . ($origin ?: '*'));
+        }
 
         http_response_code($statusCode);
 
         echo json_encode([
             'success' => $statusCode < 400,
             'data'    => $data,
-            'message' => '',
-            'errors'  => [],
+            'message' => $message,
+            'errors'  => $errors,
         ]);
 
         exit;
     }
 
+    /**
+     * @deprecated Gunakan metode json() sebagai gantinya
+     * Metode ini disimpan untuk kompatibilitas backward
+     */
     public function jsonResponse($data, $statusCode = 200)
     {
 

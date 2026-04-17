@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -57,10 +57,10 @@ export default function LoginPage() {
   }, [authLoading, isAuthenticated]);
 
   // Redirect ke dashboard jika sudah terautentikasi (hindari race condition double redirect)
+  const hasRedirected = useRef(false);
   useEffect(() => {
-    let hasRedirected = false;
-    if (isAuthenticated && !authLoading && !hasRedirected) {
-      hasRedirected = true;
+    if (isAuthenticated && !authLoading && !hasRedirected.current) {
+      hasRedirected.current = true;
       router.push('/dashboard');
     }
   }, [isAuthenticated, authLoading, router]);

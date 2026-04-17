@@ -5,7 +5,14 @@ class Jwt {
 
     private static function getSecret(): string {
         if (self::$secret === null) {
-            self::$secret = $_ENV['JWT_SECRET'] ?? throw new Exception('JWT_SECRET not configured');
+            $secret = $_ENV['JWT_SECRET'] ?? '';
+            if (empty($secret)) {
+                throw new Exception('JWT_SECRET not configured');
+            }
+            if (strlen($secret) < 32) {
+                throw new Exception('JWT_SECRET must be at least 32 characters');
+            }
+            self::$secret = $secret;
         }
         return self::$secret;
     }
@@ -17,7 +24,7 @@ class Jwt {
      * @param array $payload Data payload untuk JWT
      * @return string JWT token yang sudah di-encode
      */
-    public static function encode($payload) {
+    public static function encode(array $payload): string {
         $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
         $payload = json_encode(array_merge($payload, ['exp' => time() + (60 * 60 * 24)]));
 
@@ -47,13 +54,24 @@ class Jwt {
         $signature = str_replace(['-', '_'], ['+', '/'], $signature);
         $signature = base64_decode($signature, true);
 
+        // Validasi hasil base64_decode signature
+        if ($signature === false) return null;
+
         // Compute expected signature
         $expected = hash_hmac('sha256', $header . "." . $payload, self::getSecret(), true);
 
         // Timing-safe comparison
-        if ($signature === false || !hash_equals($expected, $signature)) return null;
+        if (!hash_equals($expected, $signature)) return null;
 
-        $decodedPayload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $payload)), true);
+        $decodedPayload = base64_decode(str_replace(['-', '_'], ['+', '/'], $payload), true);
+
+        // Validasi hasil base64_decode payload
+        if ($decodedPayload === false) return null;
+
+        $decodedPayload = json_decode($decodedPayload, true);
+
+        // Validasi hasil json_decode
+        if (json_last_error() !== JSON_ERROR_NONE) return null;
 
         // Cek apakah token sudah expired
         if (isset($decodedPayload['exp']) && $decodedPayload['exp'] < time()) {

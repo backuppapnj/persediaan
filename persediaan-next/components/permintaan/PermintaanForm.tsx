@@ -166,6 +166,15 @@ export default function PermintaanForm({
       }
     }
 
+    // Tambahkan validasi stok
+    if (field === 'jumlah') {
+      const selectedBarang = barangList.find(b => b.id === details[index].barangId);
+      if (selectedBarang && Number(value) > selectedBarang.stok) {
+        toast.error(`Jumlah melebihi stok tersedia (${selectedBarang.stok})`);
+        return;
+      }
+    }
+
     const newDetails = [...details];
     newDetails[index] = { ...newDetails[index], [field]: value };
     setDetails(newDetails);

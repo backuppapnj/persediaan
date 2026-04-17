@@ -297,6 +297,7 @@ function BarangMasukForm({
 
   const form = useForm<Omit<BarangMasukFormValues, 'details'>>({
     resolver: zodResolver(barangMasukSchema.omit({ details: true })),
+    mode: 'onBlur',
     defaultValues: {
       tanggal: new Date().toISOString().split('T')[0],
       supplier: '',

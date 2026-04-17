@@ -1,6 +1,19 @@
 import { api } from '../api';
 
 /**
+ * Konstanta status permintaan
+ */
+export const PERMINTAAN_STATUS = {
+  DRAFT: 'draft',
+  MENUNGGU_PERSETUJUAN: 'menunggu_persetujuan',
+  DISETUJUI: 'disetujui',
+  DIKELUARKAN: 'dikeluarkan',
+  DITOLAK: 'ditolak',
+} as const;
+
+export type PermintaanStatus = typeof PERMINTAAN_STATUS[keyof typeof PERMINTAAN_STATUS];
+
+/**
  * Interface untuk status history permintaan
  */
 export interface StatusHistory {
@@ -45,7 +58,7 @@ export interface Permintaan {
   departemen: string;
   keperluan: string;
   keterangan?: string;
-  status: 'draft' | 'menunggu_persetujuan' | 'disetujui' | 'dikeluarkan' | 'ditolak';
+  status: PermintaanStatus;
   details: PermintaanDetail[];
   statusHistory: StatusHistory[];
   createdAt: string;

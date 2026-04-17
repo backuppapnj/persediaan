@@ -6,7 +6,6 @@ import {
   permintaanApi,
   Permintaan,
   PaginatedResponse,
-  CreatePermintaanValues,
   ApprovalValues,
   Barang,
 } from '@/lib/api/permintaan';
@@ -46,14 +45,7 @@ export function usePermintaanDetail(id: string) {
 /**
  * Hook untuk membuat permintaan baru
  */
-export function useCreatePermintaan(params?: {
-  page?: number;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-  userId?: string;
-}) {
+export function useCreatePermintaan() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -63,8 +55,8 @@ export function useCreatePermintaan(params?: {
       // Invalidate query untuk memuat ulang data terbaru
       queryClient.invalidateQueries({ queryKey: ['permintaan', 'list'] });
     },
-    onError: () => {
-      toast.error('Gagal menambahkan permintaan. Silakan coba lagi.');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Gagal menambahkan permintaan. Silakan coba lagi.');
     },
   });
 }
@@ -72,14 +64,7 @@ export function useCreatePermintaan(params?: {
 /**
  * Hook untuk menyetujui permintaan
  */
-export function useApprovePermintaan(params?: {
-  page?: number;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-  userId?: string;
-}) {
+export function useApprovePermintaan() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -89,8 +74,8 @@ export function useApprovePermintaan(params?: {
       toast.success('Permintaan barang berhasil disetujui!');
       queryClient.invalidateQueries({ queryKey: ['permintaan', 'list'] });
     },
-    onError: () => {
-      toast.error('Gagal menyetujui permintaan. Silakan coba lagi.');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Gagal menyetujui permintaan. Silakan coba lagi.');
     },
   });
 }
@@ -98,14 +83,7 @@ export function useApprovePermintaan(params?: {
 /**
  * Hook untuk menolak permintaan
  */
-export function useRejectPermintaan(params?: {
-  page?: number;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-  userId?: string;
-}) {
+export function useRejectPermintaan() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -115,8 +93,8 @@ export function useRejectPermintaan(params?: {
       toast.success('Permintaan barang telah ditolak.');
       queryClient.invalidateQueries({ queryKey: ['permintaan', 'list'] });
     },
-    onError: () => {
-      toast.error('Gagal menolak permintaan. Silakan coba lagi.');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Gagal menolak permintaan. Silakan coba lagi.');
     },
   });
 }
@@ -124,14 +102,7 @@ export function useRejectPermintaan(params?: {
 /**
  * Hook untuk mengeluarkan barang permintaan
  */
-export function useIssuePermintaan(params?: {
-  page?: number;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-  userId?: string;
-}) {
+export function useIssuePermintaan() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -141,8 +112,8 @@ export function useIssuePermintaan(params?: {
       toast.success('Barang permintaan berhasil dikeluarkan!');
       queryClient.invalidateQueries({ queryKey: ['permintaan', 'list'] });
     },
-    onError: () => {
-      toast.error('Gagal mengeluarkan barang. Silakan coba lagi.');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Gagal mengeluarkan barang. Silakan coba lagi.');
     },
   });
 }
@@ -150,14 +121,7 @@ export function useIssuePermintaan(params?: {
 /**
  * Hook untuk submit permintaan untuk persetujuan
  */
-export function useSubmitForApproval(params?: {
-  page?: number;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-  userId?: string;
-}) {
+export function useSubmitForApproval() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -166,8 +130,8 @@ export function useSubmitForApproval(params?: {
       toast.success('Permintaan barang telah dikirim untuk persetujuan!');
       queryClient.invalidateQueries({ queryKey: ['permintaan', 'list'] });
     },
-    onError: () => {
-      toast.error('Gagal mengirim permintaan. Silakan coba lagi.');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Gagal mengirim permintaan. Silakan coba lagi.');
     },
   });
 }

@@ -132,6 +132,7 @@ function BarangForm({
 }) {
   const form = useForm<BarangFormValues>({
     resolver: zodResolver(barangSchema),
+    mode: 'onBlur',
     defaultValues: {
       nama: '',
       kode: '',

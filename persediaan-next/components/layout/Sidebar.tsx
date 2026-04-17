@@ -1,6 +1,8 @@
+'use client';
+
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Package, Home, BarChart2, Settings, LogOut, ClipboardList } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Package, Home, BarChart2, Settings, LogOut, ClipboardList, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
@@ -8,11 +10,29 @@ const menuItems = [
   { name: 'Data Barang', icon: Package, path: '/barang' },
   { name: 'Permintaan', icon: ClipboardList, path: '/permintaan' },
   { name: 'Laporan', icon: BarChart2, path: '/laporan' },
+  { name: 'Pengguna', icon: Users, path: '/pengguna' },
   { name: 'Pengaturan', icon: Settings, path: '/pengaturan' },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onCloseMobile?: () => void;
+}
+
+export function Sidebar({ onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    // TODO: Implementasikan logout logic
+    router.push('/login');
+  };
+
+  const handleNavClick = () => {
+    // Tutup sidebar pada mobile setelah navigasi
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
 
   return (
     <div className="w-64 h-screen bg-slate-900 border-r border-slate-800 flex flex-col p-4">
@@ -30,6 +50,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.path}
+              onClick={handleNavClick}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
                 isActive
@@ -44,7 +65,10 @@ export function Sidebar() {
         })}
       </nav>
 
-      <button className="flex items-center gap-3 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors mt-auto">
+      <button
+        onClick={handleLogout}
+        className="flex items-center gap-3 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors mt-auto"
+      >
         <LogOut className="w-5 h-5" />
         <span>Keluar</span>
       </button>
